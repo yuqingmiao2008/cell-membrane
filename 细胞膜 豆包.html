@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D细胞膜流动镶嵌模型</title>
+  <!-- 引入外部资源 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+  
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            phospholipid: '#3B82F6',      // 磷脂分子 - 蓝色
+            phospholipidTail: '#FBBF24', // 磷脂尾部 - 黄色
+            protein: '#EF4444',            // 蛋白质 - 红色
+            glycoprotein: '#A855F7',       // 糖蛋白 - 紫色
+            cholesterol: '#F97316',        // 胆固醇 - 橙色
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .backdrop-blur-sm {
+        backdrop-filter: blur(4px);
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen font-sans text-slate-800 overflow-x-hidden">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white/80 backdrop-blur-sm shadow-sm fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <<i class="fa fa-dna text-primary text-2xl"></</i>
+        <h1 class="text-xl md:text-2xl font-bold text-primary">细胞膜3D模型</h1>
+      </div>
+      <nav class="hidden md:flex items-center space-x-6">
+        <a href="#structure" class="hover:text-primary transition-colors">结构组成</a>
+        <a href="#controls" class="hover:text-primary transition-colors">操作指南</a>
+        <a href="#info" class="hover:text-primary transition-colors">相关知识</a>
+      </nav>
+      <button class="md:hidden text-slate-600" id="menuToggle">
+        <<i class="fa fa-bars text-xl"></</i>
+      </button>
+    </div>
+    <!-- 移动端菜单 -->
+    <div id="mobileMenu" class="hidden md:hidden bg-white shadow-md absolute w-full">
+      <div class="container mx-auto px-4 py-2 flex flex-col space-y-3">
+        <a href="#structure" class="py-2 hover:text-primary transition-colors">结构组成</a>
+        <a href="#controls" class="py-2 hover:text-primary transition-colors">操作指南</a>
+        <a href="#info" class="py-2 hover:text-primary transition-colors">相关知识</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要内容区 -->
+  <main class="container mx-auto px-4 pt-24 pb-16">
+    <!-- 模型展示区 -->
+    <section class="mb-12">
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-100">
+          <h2 class="text-lg font-semibold text-slate-700">细胞膜流动镶嵌模型</h2>
+          <p class="text-sm text-slate-500">可旋转、缩放模型以360°观察细胞膜结构</p>
+        </div>
+        <div class="relative">
+          <!-- 3D模型容器 -->
+          <div id="modelContainer" class="w-full h-[500px] md:h-[600px]"></div>
+          
+          <!-- 信息提示 -->
+          <div class="absolute bottom-4 left-4 bg-black/70 text-white text-sm px-3 py-2 rounded-full flex items-center space-x-2 backdrop-blur-sm">
+            <<i class="fa fa-info-circle"></</i>
+            <span>点击分子查看详细信息</span>
+          </div>
+          
+          <!-- 模型控制按钮 -->
+          <div id="controls" class="absolute top-4 right-4 bg-white/80 backdrop-blur-sm rounded-lg shadow-md p-2 flex flex-col space-y-2">
+            <button id="rotateToggle" class="p-2 rounded hover:bg-slate-100 transition-colors" title="自动旋转">
+              <<i class="fa fa-refresh"></</i>
+            </button>
+            <button id="resetView" class="p-2 rounded hover:bg-slate-100 transition-colors" title="重置视角">
+              <<i class="fa fa-home"></</i>
+            </button>
+            <button id="fullscreen" class="p-2 rounded hover:bg-slate-100 transition-colors" title="全屏查看">
+              <<i class="fa fa-expand"></</i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 结构组成说明 -->
+    <section id="structure" class="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-xl shadow-lg p-6">
+        <h2 class="text-xl font-bold mb-4 text-primary flex items-center">
+          <<i class="fa fa-list-ul mr-2"></</i>细胞膜组成成分
+        </h2>
+        <div class="space-y-4">
+          <div class="flex items-start space-x-3">
+            <div class="w-4 h-4 rounded-full bg-phospholipid mt-1"></div>
+            <div>
+              <h3 class="font-semibold">磷脂双分子层</h3>
+              <p class="text-sm text-slate-600">构成细胞膜的基本支架，亲水头部朝外，疏水尾部相对。</p>
+            </div>
+          </div>
+          <div class="flex items-start space-x-3">
+            <div class="w-4 h-4 rounded-full bg-protein mt-1"></div>
+            <div>
+              <h3 class="font-semibold">蛋白质</h3>
+              <p class="text-sm text-slate-600">分为整合蛋白和外周蛋白，负责物质运输、信号传递等功能。</p>
+            </div>
+          </div>
+          <div class="flex items-start space-x-3">
+            <div class="w-4 h-4 rounded-full bg-glycoprotein mt-1"></div>
+            <div>
+              <h3 class="font-semibold">糖蛋白</h3>
+              <p class="text-sm text-slate-600">位于细胞膜外侧，由蛋白质和糖类结合而成，参与细胞识别。</p>
+            </div>
+          </div>
+          <div class="flex items-start space-x-3">
+            <div class="w-4 h-4 rounded-full bg-cholesterol mt-1"></div>
+            <div>
+              <h3 class="font-semibold">胆固醇</h3>
+              <p class="text-sm text-slate-600">镶嵌在磷脂分子之间，调节细胞膜的流动性和稳定性。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl shadow-lg p-6">
+        <h2 class="text-xl font-bold mb-4 text-primary flex items-center">
+          <<i class="fa fa-hand-pointer-o mr-2"></</i>操作指南
+        </h2>
+        <div class="space-y-3">
+          <div class="flex items-start space-x-3">
+            <<i class="fa fa-mouse-pointer text-slate-500 mt-1"></</i>
+            <p class="text-sm">拖动鼠标：旋转模型</p>
+          </div>
+          <div class="flex items-start space-x-3">
+            <<i class="fa fa-search-plus text-slate-500 mt-1"></</i>
+            <p class="text-sm">滚轮/双指缩放：放大或缩小模型</p>
+          </div>
+          <div class="flex items-start space-x-3">
+            <<i class="fa fa-arrows text-slate-500 mt-1"></</i>
+            <p class="text-sm">按住Shift键拖动：平移模型</p>
+          </div>
+          <div class="flex items-start space-x-3">
+            <<i class="fa fa-mouse-pointer text-slate-500 mt-1"></</i>
+            <p class="text-sm">点击分子：查看详细信息</p>
+          </div>
+          <div class="flex items-start space-x-3">
+            <<i class="fa fa-refresh text-slate-500 mt-1"></</i>
+            <p class="text-sm">刷新按钮：切换自动旋转</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 相关知识 -->
+    <section id="info" class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+      <h2 class="text-2xl font-bold mb-6 text-primary">流动镶嵌模型的生物学意义</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-50 p-5 rounded-lg">
+          <div class="text-primary text-3xl mb-3">
+            <<i class="fa fa-exchange"></</i>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">物质运输</h3>
+          <p class="text-slate-600 text-sm">细胞膜的流动性允许物质通过扩散、主动运输等方式进出细胞，保证细胞代谢的正常进行。</p>
+        </div>
+        <div class="bg-slate-50 p-5 rounded-lg">
+          <div class="text-primary text-3xl mb-3">
+            <<i class="fa fa-comments"></</i>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">信号传递</h3>
+          <p class="text-slate-600 text-sm">膜上的蛋白质作为受体，能识别并结合信号分子，将信息传递到细胞内部，调节细胞活动。</p>
+        </div>
+        <div class="bg-slate-50 p-5 rounded-lg">
+          <div class="text-primary text-3xl mb-3">
+            <<i class="fa fa-id-card-o"></</i>
+          </div>
+          <h3 class="text-lg font-semibold mb-2">细胞识别</h3>
+          <p class="text-slate-600 text-sm">糖蛋白具有特异性识别功能，在免疫反应、细胞通讯和细胞黏附中发挥重要作用。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <!-- 分子信息弹窗 -->
+  <div id="moleculeInfo" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 transform transition-all">
+      <div class="flex justify-between items-start mb-4">
+        <h3 id="moleculeTitle" class="text-xl font-bold text-primary"></h3>
+        <button id="closeInfo" class="text-slate-400 hover:text-slate-600">
+          <<i class="fa fa-times text-xl"></</i>
+        </button>
+      </div>
+      <div id="moleculeContent" class="text-slate-600 space-y-3 mb-6">
+        <!-- 内容将通过JS动态填充 -->
+      </div>
+      <div class="flex justify-end">
+        <button id="confirmInfo" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+          了解了
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 页脚 -->
+  <footer class="bg-slate-800 text-white py-8">
+    <div class="container mx-auto px-4">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="mb-4 md:mb-0">
+          <div class="flex items-center space-x-2">
+            <<i class="fa fa-dna text-primary text-xl"></</i>
+            <span class="font-bold">细胞膜3D模型教学工具</span>
+          </div>
+          <p class="text-slate-400 text-sm mt-1">助力生物学教学，直观理解细胞膜结构</p>
+        </div>
+        <div class="flex space-x-4">
+          <a href="#" class="text-slate-400 hover:text-white transition-colors">
+            <<i class="fa fa-question-circle"></</i> 帮助中心
+          </a>
+          <a href="#" class="text-slate-400 hover:text-white transition-colors">
+            <<i class="fa fa-envelope"></</i> 联系我们
+          </a>
+        </div>
+      </div>
+      <div class="border-t border-slate-700 mt-6 pt-6 text-center text-slate-400 text-sm">
+        © 2023 生物教学资源网 | 版权所有
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // 移动端菜单切换
+    document.getElementById('menuToggle').addEventListener('click', function() {
+      const mobileMenu = document.getElementById('mobileMenu');
+      mobileMenu.classList.toggle('hidden');
+    });
+    
+    // 平滑滚动
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href');
+        const targetElement = document.querySelector(targetId);
+        
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 80,
+            behavior: 'smooth'
+          });
+          
+          // 关闭移动菜单
+          document.getElementById('mobileMenu').classList.add('hidden');
+        }
+      });
+    });
+    
+    // 3D模型实现
+    document.addEventListener('DOMContentLoaded', function() {
+      // 创建场景
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0f4f8);
+      
+      // 创建相机
+      const camera = new THREE.PerspectiveCamera(60, document.getElementById('modelContainer').clientWidth / document.getElementById('modelContainer').clientHeight, 0.1, 1000);
+      camera.position.z = 25;
+      camera.position.y = 5;
+      camera.position.x = 5;
+      
+      // 创建渲染器
+      const container = document.getElementById('modelContainer');
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+      
+      // 添加环境光
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+      
+      // 添加定向光（产生阴影）
+      const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight1.position.set(20, 30, 20);
+      directionalLight1.castShadow = true;
+      scene.add(directionalLight1);
+      
+      const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+      directionalLight2.position.set(-20, 10, -20);
+      scene.add(directionalLight2);
+      
+      // 配置阴影属性
+      directionalLight1.shadow.mapSize.width = 2048;
+      directionalLight1.shadow.mapSize.height = 2048;
+      directionalLight1.shadow.camera.near = 0.5;
+      directionalLight1.shadow.camera.far = 100;
+      
+      // 添加辅助网格（可选）
+      const gridHelper = new THREE.GridHelper(50, 20, 0xe0e0e0, 0xf0f0f0);
+      gridHelper.position.y = -10;
+      scene.add(gridHelper);
+      
+      // 创建轨道控制器
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.rotateSpeed = 0.5;
+      controls.enableZoom = true;
+      controls.zoomSpeed = 0.7;
+      
+      // 自动旋转控制
+      let autoRotate = false;
+      controls.autoRotate = autoRotate;
+      controls.autoRotateSpeed = 0.5;
+      
+      document.getElementById('rotateToggle').addEventListener('click', function() {
+        autoRotate = !autoRotate;
+        controls.autoRotate = autoRotate;
+        this.classList.toggle('text-primary', autoRotate);
+      });
+      
+      // 重置视角
+      document.getElementById('resetView').addEventListener('click', function() {
+        camera.position.set(25, 5, 5);
+        camera.lookAt(scene.position);
+        controls.reset();
+      });
+      
+      // 全屏切换
+      document.getElementById('fullscreen').addEventListener('click', function() {
+        if (!document.fullscreenElement) {
+          container.requestFullscreen().catch(err => {
+            console.log(`全屏错误: ${err.message}`);
+          });
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+        }
+      });
+      
+      // 窗口大小调整
+      window.addEventListener('resize', function() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      });
+      
+      // 分子信息弹窗控制
+      const moleculeInfo = document.getElementById('moleculeInfo');
+      const moleculeTitle = document.getElementById('moleculeTitle');
+      const moleculeContent = document.getElementById('moleculeContent');
+      
+      function showMoleculeInfo(title, content) {
+        moleculeTitle.textContent = title;
+        moleculeContent.innerHTML = content;
+        moleculeInfo.classList.remove('hidden');
+        moleculeInfo.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      }
+      
+      function hideMoleculeInfo() {
+        moleculeInfo.classList.add('hidden');
+        moleculeInfo.classList.remove('flex');
+        document.body.style.overflow = '';
+      }
+      
+      document.getElementById('closeInfo').addEventListener('click', hideMoleculeInfo);
+      document.getElementById('confirmInfo').addEventListener('click', hideMoleculeInfo);
+      
+      moleculeInfo.addEventListener('click', function(e) {
+        if (e.target === moleculeInfo) {
+          hideMoleculeInfo();
+        }
+      });
+      
+      // 创建磷脂分子
+      function createPhospholipid(x, z, flipped = false) {
+        const group = new THREE.Group();
+        
+        // 亲水头部（球体）
+        const headGeometry = new THREE.SphereGeometry(1.2, 16, 16);
+        const headMaterial = new THREE.MeshStandardMaterial({
+          color: 0x3B82F6, // 蓝色
+          metalness: 0.3,
+          roughness: 0.4,
+          transparent: true,
+          opacity: 0.9
+        });
+        const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.castShadow = true;
+        head.receiveShadow = true;
+        group.add(head);
+        
+        // 疏水尾部（两个圆柱体）
+        const tailMaterial = new THREE.MeshStandardMaterial({
+          color: 0xFBBF24, // 黄色
+          metalness: 0.2,
+          roughness: 0.5
+        });
+        
+        // 尾部1
+        const tail1Geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 12);
+        const tail1 = new THREE.Mesh(tail1Geometry, tailMaterial);
+        tail1.position.y = flipped ? 2.5 : -2.5;
+        tail1.rotation.z = Math.random() * 0.3 - 0.15; // 轻微随机旋转
+        tail1.castShadow = true;
+        tail1.receiveShadow = true;
+        group.add(tail1);
+        
+        // 尾部2
+        const tail2Geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 12);
+        const tail2 = new THREE.Mesh(tail2Geometry, tailMaterial);
+        tail2.position.y = flipped ? 2.5 : -2.5;
+        tail2.rotation.z = Math.random() * 0.3 + 0.15; // 轻微随机旋转
+        tail2.castShadow = true;
+        tail2.receiveShadow = true;
+        group.add(tail2);
+        
+        // 设置位置
+        group.position.x = x;
+        group.position.z = z;
+        group.position.y = flipped ? 5 : -5;
+        
+        // 添加点击事件数据
+        group.userData = {
+          type: 'phospholipid',
+          name: '磷脂分子',
+          info: `
+            <p>磷脂分子是构成细胞膜的基本成分，具有独特的双亲性。</p>
+            <p><strong>结构特点：</strong>由亲水的头部和疏水的尾部组成，头部含有磷酸基团，尾部为脂肪酸链。</p>
+            <p><strong>功能：</strong>形成双分子层结构，构成细胞膜的基本支架，具有流动性。</p>
+          `
+        };
+        
+        return group;
+      }
+      
+      // 创建蛋白质
+      function createProtein(x, z, type = 'integral') {
+        const group = new THREE.Group();
+        
+        let geometry, material;
+        
+        if (type === 'integral') {
+          // 整合蛋白（贯穿膜）
+          geometry = new THREE.CylinderGeometry(1.5, 1.5, 12, 16, 5, true);
+          material = new THREE.MeshStandardMaterial({
+            color: 0xEF4444, // 红色
+            metalness: 0.2,
+            roughness: 0.6,
+            wireframe: false
+          });
+        } else {
+          // 外周蛋白（附着在膜表面）
+          geometry = new THREE.TorusKnotGeometry(1.2, 0.4, 40, 16);
+          material = new THREE.MeshStandardMaterial({
+            color: 0x10B981, // 绿色
+            metalness: 0.2,
+            roughness: 0.6
+          });
+        }
+        
+        const protein = new THREE.Mesh(geometry, material);
+        protein.castShadow = true;
+        protein.receiveShadow = true;
+        
+        // 随机旋转
+        protein.rotation.x = Math.PI / 2;
+        protein.rotation.y = Math.random() * Math.PI;
+        
+        group.add(protein);
+        
+        // 设置位置
+        group.position.x = x;
+        group.position.z = z;
+        
+        // 添加点击事件数据
+        const name = type === 'integral' ? '整合蛋白' : '外周蛋白';
+        const info = type === 'integral' ? `
+          <p>整合蛋白贯穿细胞膜的磷脂双分子层，是细胞膜功能的主要承担者。</p>
+          <p><strong>结构特点：</strong>具有跨膜结构域，与膜结合紧密。</p>
+          <p><strong>功能：</strong>参与物质运输（如载体蛋白）、信号传递（如受体蛋白）等。</p>
+        ` : `
+          <p>外周蛋白附着在细胞膜表面，不深入磷脂双分子层内部。</p>
+          <p><strong>结构特点：</strong>通过非共价键与膜表面的蛋白质或脂质结合，结合较松散。</p>
+          <p><strong>功能：</strong>参与细胞骨架的形成、酶催化反应等。</p>
+        `;
+        
+        group.userData = {
+          type: 'protein',
+          name: name,
+          info: info
+        };
+        
+        return group;
+      }
+      
+      // 创建糖蛋白
+      function createGlycoprotein(x, z) {
+        const group = new THREE.Group();
+        
+        // 蛋白质部分
+        const proteinGeometry = new THREE.CylinderGeometry(1.2, 1.2, 6, 12, 3, true);
+        const proteinMaterial = new THREE.MeshStandardMaterial({
+          color: 0xEF4444, // 红色
+          metalness: 0.2,
+          roughness: 0.6
+        });
+        const protein = new THREE.Mesh(proteinGeometry, proteinMaterial);
+        protein.rotation.x = Math.PI / 2;
+        protein.castShadow = true;
+        protein.receiveShadow = true;
+        group.add(protein);
+        
+        // 糖类部分
+        const sugarGeometry = new THREE.IcosahedronGeometry(1.5, 1);
+        const sugarMaterial = new THREE.MeshStandardMaterial({
+          color: 0xA855F7, // 紫色
+          metalness: 0.3,
+          roughness: 0.3,
+          transparent: true,
+          opacity: 0.8
+        });
+        const sugar = new THREE.Mesh(sugarGeometry, sugarMaterial);
+        sugar.position.y = 4; // 位于膜外侧
+        sugar.castShadow = true;
+        sugar.receiveShadow = true;
+        group.add(sugar);
+        
+        // 设置位置
+        group.position.x = x;
+        group.position.z = z;
+        
+        // 添加点击事件数据
+        group.userData = {
+          type: 'glycoprotein',
+          name: '糖蛋白',
+          info: `
+            <p>糖蛋白由蛋白质和糖类结合而成，主要分布在细胞膜的外侧。</p>
+            <p><strong>结构特点：</strong>糖类部分位于细胞膜外侧，与蛋白质共价结合。</p>
+            <p><strong>功能：</strong>是细胞识别的重要物质，在免疫反应、细胞通讯中起关键作用。</p>
+          `
+        };
+        
+        return group;
+      }
+      
+      // 创建胆固醇
+      function createCholesterol(x, z) {
+        const group = new THREE.Group();
+        
+        // 胆固醇结构
+        const geometry = new THREE.CylinderGeometry(0.8, 0.8, 4, 12);
+        const material = new THREE.MeshStandardMaterial({
+          color: 0xF97316, // 橙色
+          metalness: 0.3,
+          roughness: 0.5
+        });
+        const cholesterol = new THREE.Mesh(geometry, material);
+        
+        // 添加胆固醇头部
+        const headGeometry = new THREE.SphereGeometry(0.6, 12, 12);
+        const head = new THREE.Mesh(headGeometry, material);
+        head.position.y = 2;
+        cholesterol.add(head);
+        
+        cholesterol.rotation.x = Math.PI / 2;
+        cholesterol.castShadow = true;
+        cholesterol.receiveShadow = true;
+        group.add(cholesterol);
+        
+        // 设置位置
+        group.position.x = x;
+        group.position.z = z;
+        
+        // 添加点击事件数据
+        group.userData = {
+          type: 'cholesterol',
+          name: '胆固醇',
+          info: `
+            <p>胆固醇是动物细胞膜的重要组成成分，调节膜的流动性。</p>
+            <p><strong>结构特点：</strong>具有刚性的甾环结构和柔性的烃链尾部。</p>
+            <p><strong>功能：</strong>在高温时限制磷脂分子运动，增加膜的稳定性；在低温时防止膜过度凝固，保持膜的流动性。</p>
+          `
+        };
+        
+        return group;
+      }
+      
+      // 创建细胞膜结构
+      function createCellMembrane() {
+        const membraneGroup = new THREE.Group();
+        
+        // 网格大小
+        const gridSize = 10;
+        const spacing = 4;
+        
+        // 创建磷脂双分子层
+        for (let x = -gridSize; x <= gridSize; x++) {
+          for (let z = -gridSize; z <= gridSize; z++) {
+            // 上侧磷脂（头部向上）
+            const phospholipidTop = createPhospholipid(x * spacing, z * spacing, true);
+            membraneGroup.add(phospholipidTop);
+            
+            // 下侧磷脂（头部向下）
+            const phospholipidBottom = createPhospholipid(x * spacing, z * spacing, false);
+            membraneGroup.add(phospholipidBottom);
+            
+            // 随机添加胆固醇
+            if (Math.random() < 0.2) {
+              const cholesterol = createCholesterol(x * spacing, z * spacing);
+              membraneGroup.add(cholesterol);
+            }
+          }
+        }
+        
+        // 添加蛋白质
+        const proteinPositions = [
+          {x: -15, z: -10, type: 'integral'},
+          {x: 5, z: -15, type: 'integral'},
+          {x: 12, z: 8, type: 'integral'},
+          {x: -8, z: 14, type: 'peripheral'},
+          {x: 18, z: -5, type: 'peripheral'}
+        ];
+        
+        proteinPositions.forEach(pos => {
+          const protein = createProtein(pos.x, pos.z, pos.type);
+          membraneGroup.add(protein);
+        });
+        
+        // 添加糖蛋白
+        const glycoproteinPositions = [
+          {x: -5, z: -5},
+          {x: 10, z: 10},
+          {x: -12, z: 3}
+        ];
+        
+        glycoproteinPositions.forEach(pos => {
+          const glycoprotein = createGlycoprotein(pos.x, pos.z);
+          membraneGroup.add(glycoprotein);
+        });
+        
+        return membraneGroup;
+      }
+      
+      // 创建细胞膜并添加到场景
+      const cellMembrane = createCellMembrane();
+      scene.add(cellMembrane);
+      
+      // 射线投射器（用于点击检测）
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      
+      function onMouseClick(event) {
+        // 计算鼠标在标准化设备坐标中的位置 (-1 到 1)
+        mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+        mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+        
+        // 更新射线投射器
+        raycaster.setFromCamera(mouse, camera);
+        
+        // 检查与哪些物体相交
+        const intersects = raycaster.intersectObjects(cellMembrane.children, true);
+        
+        if (intersects.length > 0) {
+          // 获取最接近的物体
+          const clickedObject = intersects[0].object;
+          
+          // 查找包含用户数据的父对象
+          let parentWithData = clickedObject;
+          while (parentWithData && !parentWithData.userData.type) {
+            parentWithData = parentWithData.parent;
+          }
+          
+          if (parentWithData && parentWithData.userData.type) {
+            // 显示分子信息
+            showMoleculeInfo(
+              parentWithData.userData.name,
+              parentWithData.userData.info
+            );
+          }
+        }
+      }
+      
+      // 添加点击事件监听
+      renderer.domElement.addEventListener('click', onMouseClick);
+      
+      // 动画循环
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      
+      // 启动动画
+      animate();
+    });
+  </script>
+</body>
+</html>

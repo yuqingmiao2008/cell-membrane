@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 细胞膜模型</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    #info h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+    }
+    #info p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <h2>细胞膜流动镶嵌模型</h2>
+    <p><strong>蓝色球：</strong> 磷脂分子的亲水头部</p>
+    <p><strong>黄色尾巴：</strong> 磷脂分子的疏水尾部</p>
+    <p><strong>绿色结构：</strong> 蛋白质分子</p>
+    <p><strong>红色小球：</strong> 胆固醇分子</p>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // 初始化场景、相机和渲染器
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 添加灯光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(50, 50, 50);
+    scene.add(pointLight);
+
+    // 创建磷脂分子
+    function createPhospholipid(x, y, z) {
+      // 亲水头部 (蓝色球)
+      const headGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+      const headMaterial = new THREE.MeshPhongMaterial({ color: 0x0000ff, shininess: 100 });
+      const head = new THREE.Mesh(headGeometry, headMaterial);
+      head.position.set(x, y, z);
+      
+      // 疏水尾部 (黄色尾巴)
+      const tailGeometry = new THREE.CylinderGeometry(0.1, 0.1, 1, 32);
+      const tailMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00, shininess: 100 });
+      const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+      tail.position.set(x, y - 0.65, z);
+      tail.rotation.x = Math.PI / 2;
+
+      const group = new THREE.Group();
+      group.add(head);
+      group.add(tail);
+      return group;
+    }
+
+    // 创建蛋白质分子
+    function createProtein(x, y, z) {
+      const geometry = new THREE.BoxGeometry(1, 0.5, 0.5);
+      const material = new THREE.MeshPhongMaterial({ color: 0x00ff00, shininess: 100 });
+      const protein = new THREE.Mesh(geometry, material);
+      protein.position.set(x, y, z);
+      return protein;
+    }
+
+    // 创建胆固醇分子
+    function createCholesterol(x, y, z) {
+      const geometry = new THREE.SphereGeometry(0.2, 32, 32);
+      const material = new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100 });
+      const cholesterol = new THREE.Mesh(geometry, material);
+      cholesterol.position.set(x, y, z);
+      return cholesterol;
+    }
+
+    // 构建细胞膜
+    for (let i = -5; i <= 5; i++) {
+      for (let j = -5; j <= 5; j++) {
+        const phospholipid = createPhospholipid(i, 0, j);
+        scene.add(phospholipid);
+
+        if (Math.random() < 0.1) {
+          const protein = createProtein(i, 0.5, j);
+          scene.add(protein);
+        }
+
+        if (Math.random() < 0.05) {
+          const cholesterol = createCholesterol(i, -0.5, j);
+          scene.add(cholesterol);
+        }
+      }
+    }
+
+    // 设置相机位置
+    camera.position.z = 15;
+
+    // 动画循环
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // 调整窗口大小时更新渲染器和相机
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
+</body>
+</html>

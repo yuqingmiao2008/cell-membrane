@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>细胞膜流动镶嵌模型</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .content-wrapper {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .model-container {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #membraneCanvas {
+            width: 100%;
+            height: 500px;
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .info-panel {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-panel h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #4facfe;
+            text-align: center;
+        }
+        
+        .component {
+            margin-bottom: 25px;
+            padding: 15px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            transition: transform 0.3s ease;
+        }
+        
+        .component:hover {
+            transform: translateX(5px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        
+        .component-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .color-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .component h3 {
+            font-size: 1.3rem;
+            color: #00f2fe;
+        }
+        
+        .component p {
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .key-features {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+        }
+        
+        .key-features h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #4facfe;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .feature {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        .feature i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #00f2fe;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            opacity: 0.7;
+        }
+        
+        @media (max-width: 768px) {
+            .content-wrapper {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>细胞膜流动镶嵌模型</h1>
+            <p class="subtitle">这是一个交互式3D模型，展示细胞膜的流动镶嵌结构。细胞膜主要由磷脂双分子层构成，其中镶嵌着各种蛋白质分子。通过这个模型，您可以清晰地观察到细胞膜的各个组成部分及其功能。</p>
+        </header>
+        
+        <div class="content-wrapper">
+            <div class="model-container">
+                <div id="membraneCanvas"></div>
+                <div class="controls">
+                    <button class="control-btn" id="rotateBtn">自动旋转</button>
+                    <button class="control-btn" id="resetBtn">重置视角</button>
+                    <button class="control-btn" id="labelsBtn">显示标签</button>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <h2>细胞膜组分详解</h2>
+                
+                <div class="component">
+                    <div class="component-header">
+                        <div class="color-indicator" style="background-color: #4facfe;"></div>
+                        <h3>磷脂分子</h3>
+                    </div>
+                    <p>构成细胞膜的基本支架。具有亲水的头部（磷酸基团）和疏水的尾部（脂肪酸链）。在水环境中自动排列成双分子层结构。</p>
+                </div>
+                
+                <div class="component">
+                    <div class="component-header">
+                        <div class="color-indicator" style="background-color: #ff6b6b;"></div>
+                        <h3>载体蛋白</h3>
+                    </div>
+                    <p>贯穿整个磷脂双分子层，具有特定的形状，能与特定物质结合并改变构象，协助物质跨膜运输。</p>
+                </div>
+                
+                <div class="component">
+                    <div class="component-header">
+                        <div class="color-indicator" style="background-color: #ffd166;"></div>
+                        <h3>通道蛋白</h3>
+                    </div>
+                    <p>形成亲水性通道，允许特定离子或小分子顺浓度梯度通过，如水通道蛋白、离子通道等。</p>
+                </div>
+                
+                <div class="component">
+                    <div class="component-header">
+                        <div class="color-indicator" style="background-color: #06d6a0;"></div>
+                        <h3>糖蛋白</h3>
+                    </div>
+                    <p>蛋白质与糖链结合形成，位于细胞膜外表面，具有识别、保护、润滑等功能，参与细胞间信息交流。</p>
+                </div>
+                
+                <div class="component">
+                    <div class="component-header">
+                        <div class="color-indicator" style="background-color: #9b5de5;"></div>
+                        <h3>胆固醇</h3>
+                    </div>
+                    <p>调节细胞膜的流动性，在高温时限制磷脂分子运动，在低温时防止膜固化，维持膜的稳定性。</p>
+                </div>
+                
+                <div class="key-features">
+                    <h3>流动镶嵌模型特点</h3>
+                    <div class="features-grid">
+                        <div class="feature">
+                            <div>🔄</div>
+                            <p>流动性</p>
+                        </div>
+                        <div class="feature">
+                            <div>🧩</div>
+                            <p>镶嵌性</p>
+                        </div>
+                        <div class="feature">
+                            <div>⚖️</div>
+                            <p>不对称性</p>
+                        </div>
+                        <div class="feature">
+                            <div>🛡️</div>
+                            <p>选择透过性</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>细胞膜流动镶嵌模型 | 生物教学辅助工具 | 通过3D可视化帮助学生理解细胞膜结构</p>
+        </footer>
+    </div>
+
+    <script>
+        // 初始化Three.js场景
+        let scene, camera, renderer, controls;
+        let membraneGroup;
+        let rotateEnabled = true;
+        let labelsVisible = true;
+        
+        function init() {
+            // 创建场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a2a);
+            scene.fog = new THREE.Fog(0x0a0a2a, 20, 50);
+            
+            // 创建相机
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 25);
+            
+            // 创建渲染器
+            const canvas = document.getElementById('membraneCanvas');
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.shadowMap.enabled = true;
+            canvas.appendChild(renderer.domElement);
+            
+            // 添加控制器
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 15);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            backLight.position.set(-10, -10, -10);
+            scene.add(backLight);
+            
+            // 创建细胞膜模型
+            createMembrane();
+            
+            // 添加事件监听器
+            window.addEventListener('resize', onWindowResize);
+            
+            document.getElementById('rotateBtn').addEventListener('click', toggleRotation);
+            document.getElementById('resetBtn').addEventListener('click', resetView);
+            document.getElementById('labelsBtn').addEventListener('click', toggleLabels);
+            
+            // 开始动画循环
+            animate();
+        }
+        
+        function createMembrane() {
+            membraneGroup = new THREE.Group();
+            scene.add(membraneGroup);
+            
+            // 创建磷脂双分子层
+            createPhospholipidLayer(2); // 上层
+            createPhospholipidLayer(-2); // 下层
+            
+            // 添加蛋白质
+            addProteins();
+            
+            // 添加胆固醇
+            addCholesterol();
+            
+            // 添加糖蛋白
+            addGlycoproteins();
+        }
+        
+        function createPhospholipidLayer(zPosition) {
+            const layerGroup = new THREE.Group();
+            membraneGroup.add(layerGroup);
+            
+            // 创建磷脂分子
+            const phospholipidGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1.5, 16);
+            const headGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+            
+            // 磷脂尾部材料（疏水）
+            const tailMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x4facfe,
+                shininess: 80,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            // 磷脂头部材料（亲水）
+            const headMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xff6b6b,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.95
+            });
+            
+            // 创建多个磷脂分子
+            for (let x = -8; x <= 8; x += 1.8) {
+                for (let y = -6; y <= 6; y += 1.8) {
+                    if (Math.random() > 0.3) { // 随机分布
+                        const phospholipid = new THREE.Group();
+                        
+                        // 尾部
+                        const tail = new THREE.Mesh(phospholipidGeometry, tailMaterial);
+                        tail.position.y = zPosition > 0 ? -0.75 : 0.75;
+                        tail.rotation.x = Math.PI / 2;
+                        phospholipid.add(tail);
+                        
+                        // 头部
+                        const head = new THREE.Mesh(headGeometry, headMaterial);
+                        head.position.y = zPosition > 0 ? 0.75 : -0.75;
+                        phospholipid.add(head);
+                        
+                        phospholipid.position.set(x, y, zPosition);
+                        layerGroup.add(phospholipid);
+                    }
+                }
+            }
+        }
+        
+        function addProteins() {
+            // 载体蛋白
+            const carrierGeometry = new THREE.CapsuleGeometry(0.8, 3, 16, 32);
+            const carrierMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xff6b6b,
+                shininess: 90,
+                transparent: true,
+                opacity: 0.85
+            });
+            
+            for (let i = 0; i < 5; i++) {
+                const carrier = new THREE.Mesh(carrierGeometry, carrierMaterial);
+                carrier.position.set(
+                    -6 + Math.random() * 12,
+                    -4 + Math.random() * 8,
+                    -1 + Math.random() * 2
+                );
+                carrier.rotation.z = Math.random() * Math.PI;
+                membraneGroup.add(carrier);
+            }
+            
+            // 通道蛋白
+            const channelGeometry = new THREE.CylinderGeometry(0.6, 0.6, 4, 32);
+            const channelMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffd166,
+                shininess: 80,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            for (let i = 0; i < 4; i++) {
+                const channel = new THREE.Mesh(channelGeometry, channelMaterial);
+                channel.position.set(
+                    -5 + Math.random() * 10,
+                    -3 + Math.random() * 6,
+                    -1 + Math.random() * 2
+                );
+                channel.rotation.x = Math.PI / 2;
+                membraneGroup.add(channel);
+            }
+        }
+        
+        function addCholesterol() {
+            const cholesterolGeometry = new THREE.CapsuleGeometry(0.3, 1.2, 16, 32);
+            const cholesterolMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x9b5de5,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            for (let i = 0; i < 8; i++) {
+                const cholesterol = new THREE.Mesh(cholesterolGeometry, cholesterolMaterial);
+                cholesterol.position.set(
+                    -7 + Math.random() * 14,
+                    -5 + Math.random() * 10,
+                    -1.5 + Math.random() * 3
+                );
+                cholesterol.rotation.z = Math.random() * Math.PI;
+                membraneGroup.add(cholesterol);
+            }
+        }
+        
+        function addGlycoproteins() {
+            // 蛋白质主体
+            const proteinGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+            const proteinMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x06d6a0,
+                shininess: 90,
+                transparent: true,
+                opacity: 0.85
+            });
+            
+            // 糖链
+            const sugarGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+            const sugarMaterials = [
+                new THREE.MeshPhongMaterial({ color: 0xff9aa2, shininess: 100 }),
+                new THREE.MeshPhongMaterial({ color: 0xffb7b2, shininess: 100 }),
+                new THREE.MeshPhongMaterial({ color: 0xffdac1, shininess: 100 })
+            ];
+            
+            for (let i = 0; i < 3; i++) {
+                const protein = new THREE.Mesh(proteinGeometry, proteinMaterial);
+                protein.position.set(
+                    -6 + i * 6,
+                    5,
+                    2.5
+                );
+                membraneGroup.add(protein);
+                
+                // 添加糖链
+                const sugarChain = new THREE.Group();
+                for (let j = 0; j < 4; j++) {
+                    const sugar = new THREE.Mesh(sugarGeometry, sugarMaterials[j % 3]);
+                    sugar.position.set(0, j * 0.5, 0);
+                    sugarChain.add(sugar);
+                }
+                sugarChain.position.set(protein.position.x, protein.position.y + 1, protein.position.z);
+                membraneGroup.add(sugarChain);
+            }
+        }
+        
+        function toggleRotation() {
+            rotateEnabled = !rotateEnabled;
+            document.getElementById('rotateBtn').textContent = 
+                rotateEnabled ? '停止旋转' : '自动旋转';
+        }
+        
+        function resetView() {
+            controls.reset();
+        }
+        
+        function toggleLabels() {
+            labelsVisible = !labelsVisible;
+            document.getElementById('labelsBtn').textContent = 
+                labelsVisible ? '隐藏标签' : '显示标签';
+        }
+        
+        function onWindowResize() {
+            const canvas = document.getElementById('membraneCanvas');
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 自动旋转
+            if (rotateEnabled) {
+                membraneGroup.rotation.y += 0.005;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // 初始化场景
+        init();
+    </script>
+</body>
+</html>
