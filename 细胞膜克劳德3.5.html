@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>3D细胞膜流动镶嵌模型</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+        .label {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+            display: none;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        细胞膜流动镶嵌模型<br>
+        使用鼠标拖动可旋转视角<br>
+        滚轮可缩放
+    </div>
+    <div id="labels"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 主程序
+        let scene, camera, renderer, phospholipids = [];
+        let proteins = [], cholesterols = [];
+
+        // 初始化场景
+        function init() {
+            // 创建场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000033);
+
+            // 创建相机
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 50;
+
+            // 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 10);
+            scene.add(directionalLight);
+
+            createMembrane();
+            addOrbitControls();
+            animate();
+        }
+
+        // 创建细胞膜结构
+        function createMembrane() {
+            // 创建磷脂双分子层
+            for(let i = 0; i < 100; i++) {
+                createPhospholipid(
+                    Math.random() * 40 - 20,
+                    Math.random() * 40 - 20,
+                    0
+                );
+            }
+
+            // 创建蛋白质
+            for(let i = 0; i < 10; i++) {
+                createProtein(
+                    Math.random() * 30 - 15,
+                    Math.random() * 30 - 15,
+                    0
+                );
+            }
+
+            // 创建胆固醇
+            for(let i = 0; i < 20; i++) {
+                createCholesterol(
+                    Math.random() * 35 - 17.5,
+                    Math.random() * 35 - 17.5,
+                    0
+                );
+            }
+        }
+
+        // 创建磷脂分子
+        function createPhospholipid(x, y, z) {
+            // 亲水头部（球体）
+            const headGeometry = new THREE.SphereGeometry(0.8, 32, 32);
+            const headMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x00ff00,
+                shininess: 100,
+                specular: 0x444444
+            });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.set(x, y, z);
+
+            // 疏水尾部（圆柱体）
+            const tailGeometry = new THREE.CylinderGeometry(0.2, 0.2, 2, 32);
+            const tailMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffff00,
+                shininess: 30
+            });
+            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+            tail.position.set(x, y, z - 1);
+            tail.rotation.x = Math.PI / 2;
+
+            scene.add(head);
+            scene.add(tail);
+            phospholipids.push({ head, tail });
+        }
+
+        // 创建蛋白质
+        function createProtein(x, y, z) {
+            const geometry = new THREE.BoxGeometry(2, 2, 4);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0xff0000,
+                shininess: 100,
+                specular: 0x444444
+            });
+            const protein = new THREE.Mesh(geometry, material);
+            protein.position.set(x, y, z);
+            scene.add(protein);
+            proteins.push(protein);
+        }
+
+        // 创建胆固醇
+        function createCholesterol(x, y, z) {
+            const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0x0000ff,
+                shininess: 100,
+                specular: 0x444444
+            });
+            const cholesterol = new THREE.Mesh(geometry, material);
+            cholesterol.position.set(x, y, z);
+            scene.add(cholesterol);
+            cholesterols.push(cholesterol);
+        }
+
+        // 添加轨道控制
+        function addOrbitControls() {
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 10;
+            controls.maxDistance = 100;
+        }
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 磷脂分子的轻微摆动
+            phospholipids.forEach((phospholipid, index) => {
+                const time = Date.now() * 0.001;
+                const offset = index * 0.1;
+                phospholipid.head.position.y += Math.sin(time + offset) * 0.01;
+                phospholipid.tail.position.y += Math.sin(time + offset) * 0.01;
+            });
+
+            // 蛋白质的轻微旋转
+            proteins.forEach((protein, index) => {
+                protein.rotation.y += 0.01;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // 窗口大小改变时调整渲染器大小
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // 加载 OrbitControls
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.js';
+        script.onload = init;
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>
